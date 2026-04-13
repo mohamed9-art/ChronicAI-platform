@@ -1,0 +1,13 @@
+streamlit
+torch
+torch-geometric
+pandas
+numpy
+scikit-learn
+pyyaml
+vl-convert-python>=1.6.0
+openpyxl>=3.1.0
+matplotlib
+plotly
+rdkit
+altair
