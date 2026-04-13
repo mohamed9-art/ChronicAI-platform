@@ -14,7 +14,7 @@ ChronicAI-platform is designed for computational triage rather than experimental
 - target-by-compound heatmaps
 - exportable manuscript-ready tables and figures
 
-The current interface is organized around four pages:
+The current interface is organized around four main pages:
 
 1. **Overview**
 2. **Input compounds**
@@ -40,16 +40,13 @@ The platform currently includes five disease-group categories:
 - Metabolic
 - Diabetes-related
 
-## Project structure
+## Repository contents
 
-A clean project layout can follow this structure:
+The current public repository contains the core lightweight application files:
 
 ```text
 ChronicAI-platform/
 ├── app.py
 ├── requirements.txt
 ├── README.md
-├── .gitignore
-├── assets/
-├── example_data/
-└── outputs/
+└── .gitignore
