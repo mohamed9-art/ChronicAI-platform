@@ -173,7 +173,12 @@ def render_metric_card(title: str, value, subtitle: str = "") -> None:
 
 
 def safe_csv_download(df: pd.DataFrame, filename: str, label: str):
-    st.download_button(label=label, data=df.to_csv(index=False).encode("utf-8"), file_name=filename, mime="text/csv")
+    st.download_button(
+        label=label,
+        data=df.to_csv(index=False).encode("utf-8"),
+        file_name=filename,
+        mime="text/csv",
+    )
 
 
 def safe_excel_download(df: pd.DataFrame, filename: str, label: str):
@@ -183,11 +188,21 @@ def safe_excel_download(df: pd.DataFrame, filename: str, label: str):
     buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="data")
-    st.download_button(label=label, data=buffer.getvalue(), file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button(
+        label=label,
+        data=buffer.getvalue(),
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 def safe_json_download(obj, filename: str, label: str):
-    st.download_button(label=label, data=json.dumps(obj, indent=2, default=str).encode("utf-8"), file_name=filename, mime="application/json")
+    st.download_button(
+        label=label,
+        data=json.dumps(obj, indent=2, default=str).encode("utf-8"),
+        file_name=filename,
+        mime="application/json",
+    )
 
 
 def infer_smiles_column(df: pd.DataFrame) -> Optional[str]:
@@ -249,8 +264,30 @@ def developability_color(label: str) -> str:
     return "#15803D" if "Passed" in str(label) else "#B91C1C"
 
 
-def wrapped_title(title: str) -> str:
-    TEMP
+def wrapped_title(title: str, width: int = 42) -> str:
+    if title is None:
+        return ""
+    title = str(title).strip()
+    if len(title) <= width:
+        return title
+
+    words = title.split()
+    lines = []
+    current = []
+
+    for word in words:
+        trial = " ".join(current + [word]).strip()
+        if len(trial) <= width:
+            current.append(word)
+        else:
+            if current:
+                lines.append(" ".join(current))
+            current = [word]
+
+    if current:
+        lines.append(" ".join(current))
+
+    return "\n".join(lines)
 
 
 def canonicalize_smiles(smiles: str) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
@@ -277,7 +314,18 @@ def canonicalize_smiles(smiles: str) -> Tuple[Optional[str], Optional[str], Opti
 
 
 def compute_descriptors(smiles: str) -> Dict[str, Optional[float]]:
-    blank = {"MW": None, "logP": None, "TPSA": None, "HBD": None, "HBA": None, "RotB": None, "QED": None, "Lipinski_pass": None, "Veber_pass": None, "Egan_pass": None}
+    blank = {
+        "MW": None,
+        "logP": None,
+        "TPSA": None,
+        "HBD": None,
+        "HBA": None,
+        "RotB": None,
+        "QED": None,
+        "Lipinski_pass": None,
+        "Veber_pass": None,
+        "Egan_pass": None,
+    }
     if not RDKIT_AVAILABLE:
         return blank
     mol = Chem.MolFromSmiles(smiles)
@@ -291,13 +339,25 @@ def compute_descriptors(smiles: str) -> Dict[str, Optional[float]]:
     rotb = Lipinski.NumRotatableBonds(mol)
     qed = QED.qed(mol)
     return {
-        "MW": round(mw, 3), "logP": round(logp, 3), "TPSA": round(tpsa, 3), "HBD": int(hbd), "HBA": int(hba),
-        "RotB": int(rotb), "QED": round(qed, 4), "Lipinski_pass": int(mw <= 500 and logp <= 5 and hbd <= 5 and hba <= 10),
-        "Veber_pass": int(rotb <= 10 and tpsa <= 140), "Egan_pass": int(logp <= 5.88 and tpsa <= 131.6),
+        "MW": round(mw, 3),
+        "logP": round(logp, 3),
+        "TPSA": round(tpsa, 3),
+        "HBD": int(hbd),
+        "HBA": int(hba),
+        "RotB": int(rotb),
+        "QED": round(qed, 4),
+        "Lipinski_pass": int(mw <= 500 and logp <= 5 and hbd <= 5 and hba <= 10),
+        "Veber_pass": int(rotb <= 10 and tpsa <= 140),
+        "Egan_pass": int(logp <= 5.88 and tpsa <= 131.6),
     }
 
 
-def preprocess_dataframe(df: pd.DataFrame, smiles_col: str, id_col: Optional[str], reference_inchikeys: Optional[set]):
+def preprocess_dataframe(
+    df: pd.DataFrame,
+    smiles_col: str,
+    id_col: Optional[str],
+    reference_inchikeys: Optional[set],
+):
     records, seen = [], set()
     for idx, row in df.iterrows():
         raw_smiles = row.get(smiles_col, None)
@@ -315,24 +375,42 @@ def preprocess_dataframe(df: pd.DataFrame, smiles_col: str, id_col: Optional[str
         desc = compute_descriptors(canonical_smiles) if is_valid and canonical_smiles else compute_descriptors("")
         keep = int(is_valid and not duplicate)
         records.append({
-            "row_index": idx, "compound_id": compound_id, "input_smiles": raw_smiles, "canonical_smiles": canonical_smiles,
-            "inchikey": inchikey, "murcko_scaffold": murcko, "is_valid": int(is_valid), "error": error,
-            "is_duplicate_removed": int(duplicate), "overlap_with_reference": overlap, "keep_for_screening": keep, **desc,
+            "row_index": idx,
+            "compound_id": compound_id,
+            "input_smiles": raw_smiles,
+            "canonical_smiles": canonical_smiles,
+            "inchikey": inchikey,
+            "murcko_scaffold": murcko,
+            "is_valid": int(is_valid),
+            "error": error,
+            "is_duplicate_removed": int(duplicate),
+            "overlap_with_reference": overlap,
+            "keep_for_screening": keep,
+            **desc,
         })
     full_df = pd.DataFrame(records)
     retained = full_df[full_df["keep_for_screening"] == 1].copy()
     excluded = full_df[full_df["keep_for_screening"] == 0].copy()
     audit = {
-        "uploaded_rows": int(len(full_df)), "valid_count": int(full_df["is_valid"].sum()),
-        "invalid_count": int(len(full_df) - full_df["is_valid"].sum()), "duplicate_removed_count": int(full_df["is_duplicate_removed"].sum()),
-        "reference_overlap_count": int(full_df["overlap_with_reference"].sum()), "retained_count": int(retained.shape[0]),
-        "excluded_count": int(excluded.shape[0]), "rdkit_available": RDKIT_AVAILABLE,
+        "uploaded_rows": int(len(full_df)),
+        "valid_count": int(full_df["is_valid"].sum()),
+        "invalid_count": int(len(full_df) - full_df["is_valid"].sum()),
+        "duplicate_removed_count": int(full_df["is_duplicate_removed"].sum()),
+        "reference_overlap_count": int(full_df["overlap_with_reference"].sum()),
+        "retained_count": int(retained.shape[0]),
+        "excluded_count": int(excluded.shape[0]),
+        "rdkit_available": RDKIT_AVAILABLE,
     }
     metadata = {
-        "app_name": APP_NAME, "app_version": APP_VERSION, "model_version": MODEL_VERSION,
-        "preprocessing_version": PREPROCESSING_VERSION, "prediction_datetime_utc": datetime.now(timezone.utc).isoformat(),
-        "input_compound_count": audit["uploaded_rows"], "retained_compound_count": audit["retained_count"],
-        "duplicate_removed_count": audit["duplicate_removed_count"], "reference_overlap_count": audit["reference_overlap_count"],
+        "app_name": APP_NAME,
+        "app_version": APP_VERSION,
+        "model_version": MODEL_VERSION,
+        "preprocessing_version": PREPROCESSING_VERSION,
+        "prediction_datetime_utc": datetime.now(timezone.utc).isoformat(),
+        "input_compound_count": audit["uploaded_rows"],
+        "retained_compound_count": audit["retained_count"],
+        "duplicate_removed_count": audit["duplicate_removed_count"],
+        "reference_overlap_count": audit["reference_overlap_count"],
     }
     return retained, excluded, audit, metadata
 
@@ -356,6 +434,27 @@ def resolve_checkpoint_path(filename: str) -> str:
 CHECKPOINT_PATH = resolve_checkpoint_path(CHECKPOINT_FILENAME)
 
 
+def get_checkpoint_status() -> Dict[str, str]:
+    if not os.path.exists(CHECKPOINT_PATH):
+        return {
+            "ready": False,
+            "message": (
+                f"Model checkpoint not found. Expected file: `{CHECKPOINT_FILENAME}` "
+                "in the project root. The interface can still be explored, but "
+                "multitarget screening is disabled until the checkpoint is added."
+            ),
+        }
+    if not PYG_AVAILABLE:
+        return {
+            "ready": False,
+            "message": (
+                "torch_geometric is not available in the current environment. "
+                "Multitarget screening is disabled until this dependency is installed."
+            ),
+        }
+    return {"ready": True, "message": "Model checkpoint and inference dependencies are available."}
+
+
 def normalize_args(args_obj) -> Dict:
     if isinstance(args_obj, dict):
         return args_obj
@@ -365,7 +464,17 @@ def normalize_args(args_obj) -> Dict:
 
 
 class ConditionalGNN(nn.Module):
-    def __init__(self, node_in: int, edge_in: int, hidden: int, num_layers: int, dropout: float, n_targets: int, target_emb_dim: int, use_target_embedding: bool = True):
+    def __init__(
+        self,
+        node_in: int,
+        edge_in: int,
+        hidden: int,
+        num_layers: int,
+        dropout: float,
+        n_targets: int,
+        target_emb_dim: int,
+        use_target_embedding: bool = True,
+    ):
         super().__init__()
         self.use_target_embedding = use_target_embedding
         self.dropout = dropout
@@ -373,7 +482,11 @@ class ConditionalGNN(nn.Module):
         self.convs = nn.ModuleList()
         self.norms = nn.ModuleList()
         for _ in range(num_layers):
-            mlp = nn.Sequential(nn.Linear(hidden, hidden), nn.ReLU(), nn.Linear(hidden, hidden))
+            mlp = nn.Sequential(
+                nn.Linear(hidden, hidden),
+                nn.ReLU(),
+                nn.Linear(hidden, hidden),
+            )
             self.convs.append(GINEConv(mlp, train_eps=True, edge_dim=edge_in))
             self.norms.append(nn.BatchNorm1d(hidden))
         if use_target_embedding:
@@ -383,8 +496,13 @@ class ConditionalGNN(nn.Module):
             self.t_emb = None
             head_in = hidden
         self.head = nn.Sequential(
-            nn.Linear(head_in, hidden), nn.ReLU(), nn.Dropout(dropout),
-            nn.Linear(hidden, hidden // 2), nn.ReLU(), nn.Dropout(dropout), nn.Linear(hidden // 2, 1),
+            nn.Linear(head_in, hidden),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden, hidden // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden // 2, 1),
         )
 
     def encode(self, batch):
@@ -424,10 +542,25 @@ def load_checkpoint_bundle(checkpoint_path: str):
         use_target_embedding = not bool(args.get("no_target_embedding", False))
         node_in = state_dict["node_proj.weight"].shape[1]
         edge_in = [v for k, v in state_dict.items() if "convs.0.lin.weight" in k][0].shape[1]
-        model = ConditionalGNN(node_in, edge_in, hidden, num_layers, dropout, int(n_targets), target_emb_dim, use_target_embedding)
+        model = ConditionalGNN(
+            node_in,
+            edge_in,
+            hidden,
+            num_layers,
+            dropout,
+            int(n_targets),
+            target_emb_dim,
+            use_target_embedding,
+        )
         model.load_state_dict(state_dict, strict=True)
         model.eval()
-        return {"load_ok": True, "model": model, "target_map": target_map, "n_targets": n_targets, "args": args}
+        return {
+            "load_ok": True,
+            "model": model,
+            "target_map": target_map,
+            "n_targets": n_targets,
+            "args": args,
+        }
     except Exception as e:
         return {"load_ok": False, "error": str(e)}
 
@@ -438,15 +571,26 @@ def atom_features(mol) -> List[List[float]]:
         hyb = atom.GetHybridization()
         chiral = int(atom.GetChiralTag())
         feats.append([
-            atom.GetAtomicNum() / 100.0, atom.GetDegree() / 6.0, atom.GetFormalCharge() / 5.0,
-            atom.GetTotalNumHs() / 8.0, atom.GetTotalValence() / 8.0, float(atom.GetIsAromatic()),
-            float(atom.IsInRing()), atom.GetMass() / 200.0, float(hyb == Chem.rdchem.HybridizationType.SP),
-            float(hyb == Chem.rdchem.HybridizationType.SP2), float(hyb == Chem.rdchem.HybridizationType.SP3),
-            float(hyb == Chem.rdchem.HybridizationType.SP3D), float(hyb == Chem.rdchem.HybridizationType.SP3D2),
+            atom.GetAtomicNum() / 100.0,
+            atom.GetDegree() / 6.0,
+            atom.GetFormalCharge() / 5.0,
+            atom.GetTotalNumHs() / 8.0,
+            atom.GetTotalValence() / 8.0,
+            float(atom.GetIsAromatic()),
+            float(atom.IsInRing()),
+            atom.GetMass() / 200.0,
+            float(hyb == Chem.rdchem.HybridizationType.SP),
+            float(hyb == Chem.rdchem.HybridizationType.SP2),
+            float(hyb == Chem.rdchem.HybridizationType.SP3),
+            float(hyb == Chem.rdchem.HybridizationType.SP3D),
+            float(hyb == Chem.rdchem.HybridizationType.SP3D2),
             float(chiral == int(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW)),
             float(chiral == int(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW)),
-            float(atom.GetNumRadicalElectrons() > 0), atom.GetImplicitValence() / 8.0, atom.GetExplicitValence() / 8.0,
-            float(atom.GetNoImplicit()), atom.GetIsotope() / 100.0,
+            float(atom.GetNumRadicalElectrons() > 0),
+            atom.GetImplicitValence() / 8.0,
+            atom.GetExplicitValence() / 8.0,
+            float(atom.GetNoImplicit()),
+            atom.GetIsotope() / 100.0,
         ])
     return feats
 
@@ -458,15 +602,22 @@ def bond_features(mol):
         bt = bond.GetBondType()
         stereo = int(bond.GetStereo())
         feat = [
-            float(bt == Chem.rdchem.BondType.SINGLE), float(bt == Chem.rdchem.BondType.DOUBLE),
-            float(bt == Chem.rdchem.BondType.TRIPLE), float(bt == Chem.rdchem.BondType.AROMATIC),
-            float(bond.GetIsConjugated()), float(bond.IsInRing()), stereo / 5.0,
+            float(bt == Chem.rdchem.BondType.SINGLE),
+            float(bt == Chem.rdchem.BondType.DOUBLE),
+            float(bt == Chem.rdchem.BondType.TRIPLE),
+            float(bt == Chem.rdchem.BondType.AROMATIC),
+            float(bond.GetIsConjugated()),
+            float(bond.IsInRing()),
+            stereo / 5.0,
         ]
         edge_index.extend([[i, j], [j, i]])
         edge_attr.extend([feat, feat])
     if len(edge_index) == 0:
         edge_index, edge_attr = [[0, 0]], [[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
-    return torch.tensor(edge_index, dtype=torch.long).t().contiguous(), torch.tensor(edge_attr, dtype=torch.float32)
+    return (
+        torch.tensor(edge_index, dtype=torch.long).t().contiguous(),
+        torch.tensor(edge_attr, dtype=torch.float32),
+    )
 
 
 def smiles_to_pyg_data(smiles: str):
@@ -503,13 +654,26 @@ def run_multitarget_screening(processed_df: pd.DataFrame, selected_targets: List
                 target_idx = torch.tensor([target_map[target]], dtype=torch.long)
                 raw_pred = float(model(batch, target_idx).cpu().numpy()[0])
                 disp_pred = to_display_potency(raw_pred)
-                drug_label = developability_label_from_rules(row.get("Lipinski_pass"), row.get("Veber_pass"), row.get("Egan_pass"))
+                drug_label = developability_label_from_rules(
+                    row.get("Lipinski_pass"),
+                    row.get("Veber_pass"),
+                    row.get("Egan_pass"),
+                )
                 rows.append({
-                    "compound_id": row.get("compound_id"), "canonical_smiles": row.get("canonical_smiles"), "inchikey": row.get("inchikey"),
-                    "target": target, "disease_group": target_to_group(target), "raw_prediction": raw_pred, "predicted_pchembl": disp_pred,
-                    "potency_band": add_potency_band(disp_pred), "active_like_flag": int(disp_pred >= threshold),
-                    "QED": row.get("QED"), "Lipinski_pass": row.get("Lipinski_pass"), "Veber_pass": row.get("Veber_pass"),
-                    "Egan_pass": row.get("Egan_pass"), "druglikeness_status": drug_label,
+                    "compound_id": row.get("compound_id"),
+                    "canonical_smiles": row.get("canonical_smiles"),
+                    "inchikey": row.get("inchikey"),
+                    "target": target,
+                    "disease_group": target_to_group(target),
+                    "raw_prediction": raw_pred,
+                    "predicted_pchembl": disp_pred,
+                    "potency_band": add_potency_band(disp_pred),
+                    "active_like_flag": int(disp_pred >= threshold),
+                    "QED": row.get("QED"),
+                    "Lipinski_pass": row.get("Lipinski_pass"),
+                    "Veber_pass": row.get("Veber_pass"),
+                    "Egan_pass": row.get("Egan_pass"),
+                    "druglikeness_status": drug_label,
                     "overlap_with_reference": row.get("overlap_with_reference"),
                     "reliability_flag": "reference-overlap" if row.get("overlap_with_reference", 0) == 1 else "standard-screening",
                 })
@@ -519,18 +683,32 @@ def run_multitarget_screening(processed_df: pd.DataFrame, selected_targets: List
     summary_df = (
         long_df.groupby(["compound_id", "canonical_smiles", "inchikey"], dropna=False)
         .agg(
-            max_predicted_pchembl=("predicted_pchembl", "max"), mean_predicted_pchembl=("predicted_pchembl", "mean"),
-            n_targets_active_like=("active_like_flag", "sum"), n_targets_screened=("target", "count"), QED=("QED", "first"),
-            Lipinski_pass=("Lipinski_pass", "first"), Veber_pass=("Veber_pass", "first"), Egan_pass=("Egan_pass", "first"),
-            druglikeness_status=("druglikeness_status", "first"), overlap_with_reference=("overlap_with_reference", "first"),
+            max_predicted_pchembl=("predicted_pchembl", "max"),
+            mean_predicted_pchembl=("predicted_pchembl", "mean"),
+            n_targets_active_like=("active_like_flag", "sum"),
+            n_targets_screened=("target", "count"),
+            QED=("QED", "first"),
+            Lipinski_pass=("Lipinski_pass", "first"),
+            Veber_pass=("Veber_pass", "first"),
+            Egan_pass=("Egan_pass", "first"),
+            druglikeness_status=("druglikeness_status", "first"),
+            overlap_with_reference=("overlap_with_reference", "first"),
         )
-        .reset_index().sort_values(["max_predicted_pchembl", "mean_predicted_pchembl"], ascending=False).reset_index(drop=True)
+        .reset_index()
+        .sort_values(["max_predicted_pchembl", "mean_predicted_pchembl"], ascending=False)
+        .reset_index(drop=True)
     )
     meta = {
-        "run_ok": True, "screening_timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "selected_targets": selected_targets, "selected_target_count": len(selected_targets), "threshold_pchembl": threshold,
-        "compound_count": int(processed_df.shape[0]), "compound_target_predictions": int(long_df.shape[0]),
-        "model_version": MODEL_VERSION, "preprocessing_version": PREPROCESSING_VERSION, "app_version": APP_VERSION,
+        "run_ok": True,
+        "screening_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "selected_targets": selected_targets,
+        "selected_target_count": len(selected_targets),
+        "threshold_pchembl": threshold,
+        "compound_count": int(processed_df.shape[0]),
+        "compound_target_predictions": int(long_df.shape[0]),
+        "model_version": MODEL_VERSION,
+        "preprocessing_version": PREPROCESSING_VERSION,
+        "app_version": APP_VERSION,
     }
     return long_df, summary_df, meta
 
@@ -542,46 +720,146 @@ def get_color_scale_domain_range():
 
 
 def altair_theme_config(chart):
-    return chart.configure_view(stroke=None).configure_axis(
-        labelFontSize=int(11 * st.session_state["font_scale"]), titleFontSize=int(12 * st.session_state["font_scale"]),
-        labelColor="#334155", titleColor="#0F172A", gridColor="#E2E8F0",
-    ).configure_title(fontSize=int(16 * st.session_state["font_scale"]), color="#0F172A", anchor="start", fontWeight=700)
+    return (
+        chart.configure_view(stroke=None)
+        .configure_axis(
+            labelFontSize=int(11 * st.session_state["font_scale"]),
+            titleFontSize=int(12 * st.session_state["font_scale"]),
+            labelColor="#334155",
+            titleColor="#0F172A",
+            gridColor="#E2E8F0",
+        )
+        .configure_title(
+            fontSize=int(16 * st.session_state["font_scale"]),
+            color="#0F172A",
+            anchor="start",
+            fontWeight=700,
+        )
+    )
 
 
-def make_generic_chart(df: pd.DataFrame, chart_type: str, x: str, y: str, color: Optional[str] = None, size: Optional[str] = None, title: str = ""):
+def make_generic_chart(
+    df: pd.DataFrame,
+    chart_type: str,
+    x: str,
+    y: str,
+    color: Optional[str] = None,
+    size: Optional[str] = None,
+    title: str = "",
+):
     domain, range_ = get_color_scale_domain_range()
     h = st.session_state["figure_height"]
     angle = st.session_state["axis_label_angle"]
     if df is None or df.empty or x not in df.columns or y not in df.columns:
         return None
     base = alt.Chart(df).properties(height=h, width="container", title=title)
-    color_enc = alt.Color(f"{color}:N", scale=alt.Scale(domain=domain, range=range_), legend=alt.Legend(title=color.replace('_', ' ').title())) if color and color in df.columns else alt.value("#4F46E5")
+    color_enc = (
+        alt.Color(
+            f"{color}:N",
+            scale=alt.Scale(domain=domain, range=range_),
+            legend=alt.Legend(title=color.replace('_', ' ').title()),
+        )
+        if color and color in df.columns
+        else alt.value("#4F46E5")
+    )
+
     if chart_type == "Bar":
-        chart = base.mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6).encode(x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)), y=alt.Y(f"{y}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6).encode(
+            x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)),
+            y=alt.Y(f"{y}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Horizontal bar":
-        chart = base.mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6).encode(y=alt.Y(f"{x}:N", sort='-x'), x=alt.X(f"{y}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_bar(cornerRadiusTopRight=6, cornerRadiusBottomRight=6).encode(
+            y=alt.Y(f"{x}:N", sort='-x'),
+            x=alt.X(f"{y}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Line":
-        chart = base.mark_line(point=True, strokeWidth=2.6).encode(x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)), y=alt.Y(f"{y}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_line(point=True, strokeWidth=2.6).encode(
+            x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)),
+            y=alt.Y(f"{y}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Area":
-        chart = base.mark_area(opacity=0.75).encode(x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)), y=alt.Y(f"{y}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_area(opacity=0.75).encode(
+            x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)),
+            y=alt.Y(f"{y}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Scatter":
-        chart = base.mark_circle(size=85, opacity=0.82).encode(x=alt.X(f"{x}:Q"), y=alt.Y(f"{y}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_circle(size=85, opacity=0.82).encode(
+            x=alt.X(f"{x}:Q"),
+            y=alt.Y(f"{y}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Bubble":
         size_col = size if size and size in df.columns else y
-        chart = base.mark_circle(opacity=0.78).encode(x=alt.X(f"{x}:Q"), y=alt.Y(f"{y}:Q"), size=alt.Size(f"{size_col}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_circle(opacity=0.78).encode(
+            x=alt.X(f"{x}:Q"),
+            y=alt.Y(f"{y}:Q"),
+            size=alt.Size(f"{size_col}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Box":
-        chart = base.mark_boxplot(extent="min-max", size=18).encode(x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)), y=alt.Y(f"{y}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_boxplot(extent="min-max", size=18).encode(
+            x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)),
+            y=alt.Y(f"{y}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Strip":
-        chart = base.mark_circle(size=60, opacity=0.65).encode(x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)), y=alt.Y(f"{y}:Q"), color=color_enc, tooltip=list(df.columns))
+        chart = base.mark_circle(size=60, opacity=0.65).encode(
+            x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)),
+            y=alt.Y(f"{y}:Q"),
+            color=color_enc,
+            tooltip=list(df.columns),
+        )
     elif chart_type == "Histogram":
-        chart = base.mark_bar().encode(x=alt.X(f"{x}:Q", bin=alt.Bin(maxbins=25)), y=alt.Y("count():Q"), color=alt.value("#4F46E5"), tooltip=[alt.Tooltip("count():Q", title="Count")])
+        chart = base.mark_bar().encode(
+            x=alt.X(f"{x}:Q", bin=alt.Bin(maxbins=25)),
+            y=alt.Y("count():Q"),
+            color=alt.value("#4F46E5"),
+            tooltip=[alt.Tooltip("count():Q", title="Count")],
+        )
     elif chart_type == "Density":
-        chart = base.transform_density(x, as_=[x, "density"]).mark_area(opacity=0.7).encode(x=alt.X(f"{x}:Q"), y=alt.Y("density:Q"), color=alt.value("#4F46E5"))
+        chart = (
+            base.transform_density(x, as_=[x, "density"])
+            .mark_area(opacity=0.7)
+            .encode(
+                x=alt.X(f"{x}:Q"),
+                y=alt.Y("density:Q"),
+                color=alt.value("#4F46E5"),
+            )
+        )
     elif chart_type == "Lollipop":
-        chart = (base.mark_rule(color="#CBD5E1").encode(y=alt.Y(f"{x}:N", sort='-x'), x=alt.value(0), x2=alt.X2(f"{y}:Q")) + base.mark_circle(size=90).encode(y=alt.Y(f"{x}:N", sort='-x'), x=alt.X(f"{y}:Q"), color=color_enc, tooltip=list(df.columns)))
+        chart = (
+            base.mark_rule(color="#CBD5E1").encode(
+                y=alt.Y(f"{x}:N", sort='-x'),
+                x=alt.value(0),
+                x2=alt.X2(f"{y}:Q"),
+            )
+            + base.mark_circle(size=90).encode(
+                y=alt.Y(f"{x}:N", sort='-x'),
+                x=alt.X(f"{y}:Q"),
+                color=color_enc,
+                tooltip=list(df.columns),
+            )
+        )
     elif chart_type == "Heatmap":
         row_field = color if color and color in df.columns else y
-        chart = base.mark_rect().encode(x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)), y=alt.Y(f"{row_field}:N"), color=alt.Color(f"{y}:Q", scale=alt.Scale(scheme=st.session_state["heatmap_scheme"])), tooltip=list(df.columns))
+        chart = base.mark_rect().encode(
+            x=alt.X(f"{x}:N", axis=alt.Axis(labelAngle=angle)),
+            y=alt.Y(f"{row_field}:N"),
+            color=alt.Color(f"{y}:Q", scale=alt.Scale(scheme=st.session_state["heatmap_scheme"])),
+            tooltip=list(df.columns),
+        )
     else:
         return None
     return altair_theme_config(chart)
@@ -590,19 +868,47 @@ def make_generic_chart(df: pd.DataFrame, chart_type: str, x: str, y: str, color:
 def make_heatmap(screening_long_df: pd.DataFrame, ranked_compounds: List[str], selected_targets: List[str]):
     if screening_long_df is None or screening_long_df.empty or not ranked_compounds or not selected_targets:
         return None
-    df = screening_long_df[screening_long_df["compound_id"].isin(ranked_compounds) & screening_long_df["target"].isin(selected_targets)].copy()
+    df = screening_long_df[
+        screening_long_df["compound_id"].isin(ranked_compounds)
+        & screening_long_df["target"].isin(selected_targets)
+    ].copy()
     if df.empty:
         return None
     df["compound_id"] = pd.Categorical(df["compound_id"], categories=ranked_compounds, ordered=True)
     df["target"] = pd.Categorical(df["target"], categories=selected_targets, ordered=True)
     height = max(300, min(720, 28 * len(ranked_compounds)))
     title = wrapped_title("Target-by-compound predicted potency heatmap")
-    chart = alt.Chart(df).mark_rect().encode(
-        x=alt.X("target:N", sort=selected_targets, axis=alt.Axis(labelAngle=max(35, st.session_state["axis_label_angle"]), labelLimit=220), title="Target"),
-        y=alt.Y("compound_id:N", sort=ranked_compounds, title="Compound"),
-        color=alt.Color("predicted_pchembl:Q", title="Predicted potency", scale=alt.Scale(domain=[4, 10], scheme=st.session_state["heatmap_scheme"])),
-        tooltip=["compound_id", "target", "disease_group", alt.Tooltip("predicted_pchembl:Q", title="Predicted potency", format=".2f"), "potency_band", "druglikeness_status", "reliability_flag"],
-    ).properties(height=height, width="container", title=title)
+    chart = (
+        alt.Chart(df)
+        .mark_rect()
+        .encode(
+            x=alt.X(
+                "target:N",
+                sort=selected_targets,
+                axis=alt.Axis(
+                    labelAngle=max(35, st.session_state["axis_label_angle"]),
+                    labelLimit=220,
+                ),
+                title="Target",
+            ),
+            y=alt.Y("compound_id:N", sort=ranked_compounds, title="Compound"),
+            color=alt.Color(
+                "predicted_pchembl:Q",
+                title="Predicted potency",
+                scale=alt.Scale(domain=[4, 10], scheme=st.session_state["heatmap_scheme"]),
+            ),
+            tooltip=[
+                "compound_id",
+                "target",
+                "disease_group",
+                alt.Tooltip("predicted_pchembl:Q", title="Predicted potency", format=".2f"),
+                "potency_band",
+                "druglikeness_status",
+                "reliability_flag",
+            ],
+        )
+        .properties(height=height, width="container", title=title)
+    )
     return altair_theme_config(chart)
 
 
@@ -628,7 +934,13 @@ def export_altair_chart_bytes(chart, fmt: str) -> Optional[bytes]:
         return None
 
 
-def export_matplotlib_bar(df: pd.DataFrame, x: str, y: str, color_col: Optional[str] = None, horizontal: bool = False) -> Optional[Tuple[bytes, bytes]]:
+def export_matplotlib_bar(
+    df: pd.DataFrame,
+    x: str,
+    y: str,
+    color_col: Optional[str] = None,
+    horizontal: bool = False,
+) -> Optional[Tuple[bytes, bytes]]:
     if not MATPLOTLIB_AVAILABLE or df is None or df.empty or x not in df.columns or y not in df.columns:
         return None
     fig, ax = plt.subplots(figsize=(11, 6))
@@ -647,19 +959,37 @@ def export_matplotlib_bar(df: pd.DataFrame, x: str, y: str, color_col: Optional[
     ax.grid(axis="y", alpha=0.25)
     fig.tight_layout()
     png_buf, pdf_buf = io.BytesIO(), io.BytesIO()
-    fig.savefig(png_buf, format="png", dpi=int(st.session_state.get("export_dpi", 300)), bbox_inches="tight", facecolor="white")
+    fig.savefig(
+        png_buf,
+        format="png",
+        dpi=int(st.session_state.get("export_dpi", 300)),
+        bbox_inches="tight",
+        facecolor="white",
+    )
     fig.savefig(pdf_buf, format="pdf", bbox_inches="tight", facecolor="white")
     plt.close(fig)
     return png_buf.getvalue(), pdf_buf.getvalue()
 
 
-def render_chart_export_block(chart, prefix: str, fallback_df: Optional[pd.DataFrame] = None, fallback_x: Optional[str] = None, fallback_y: Optional[str] = None, fallback_color: Optional[str] = None, fallback_horizontal: bool = False):
+def render_chart_export_block(
+    chart,
+    prefix: str,
+    fallback_df: Optional[pd.DataFrame] = None,
+    fallback_x: Optional[str] = None,
+    fallback_y: Optional[str] = None,
+    fallback_color: Optional[str] = None,
+    fallback_horizontal: bool = False,
+):
     c1, c2, c3, c4 = st.columns(4)
     png_bytes = export_altair_chart_bytes(chart, "png")
     pdf_bytes = export_altair_chart_bytes(chart, "pdf")
     svg_bytes = export_altair_chart_bytes(chart, "svg")
     if png_bytes is None or pdf_bytes is None:
-        fallback = export_matplotlib_bar(fallback_df, fallback_x, fallback_y, fallback_color, fallback_horizontal) if fallback_df is not None and fallback_x and fallback_y else None
+        fallback = (
+            export_matplotlib_bar(fallback_df, fallback_x, fallback_y, fallback_color, fallback_horizontal)
+            if fallback_df is not None and fallback_x and fallback_y
+            else None
+        )
         if fallback is not None:
             png_bytes, pdf_bytes = fallback
     with c1:
@@ -679,7 +1009,13 @@ def render_chart_export_block(chart, prefix: str, fallback_df: Optional[pd.DataF
             st.caption("SVG export unavailable")
     with c4:
         if chart is not None:
-            st.download_button("Download JSON spec", chart.to_json().encode("utf-8"), f"{prefix}.json", mime="application/json", key=f"{prefix}_json")
+            st.download_button(
+                "Download JSON spec",
+                chart.to_json().encode("utf-8"),
+                f"{prefix}.json",
+                mime="application/json",
+                key=f"{prefix}_json",
+            )
 
 
 def render_figure_controls(prefix: str):
@@ -692,24 +1028,49 @@ def render_figure_controls(prefix: str):
         with c3:
             st.session_state["font_scale"] = st.slider("Font scale", 0.8, 1.6, float(st.session_state["font_scale"]), 0.05)
         with c4:
-            st.session_state["export_dpi"] = st.selectbox("Export DPI", [150, 300, 600], index=[150, 300, 600].index(st.session_state["export_dpi"]))
-        st.session_state["heatmap_scheme"] = st.selectbox("Heatmap palette", HEATMAP_SCHEMES, index=HEATMAP_SCHEMES.index(st.session_state["heatmap_scheme"]))
+            st.session_state["export_dpi"] = st.selectbox(
+                "Export DPI",
+                [150, 300, 600],
+                index=[150, 300, 600].index(st.session_state["export_dpi"]),
+            )
+        st.session_state["heatmap_scheme"] = st.selectbox(
+            "Heatmap palette",
+            HEATMAP_SCHEMES,
+            index=HEATMAP_SCHEMES.index(st.session_state["heatmap_scheme"]),
+        )
 
 
 def build_rank_table(screening_summary_df: pd.DataFrame, screening_long_df: pd.DataFrame) -> pd.DataFrame:
     top_target_df = (
-        screening_long_df.sort_values(["compound_id", "predicted_pchembl"], ascending=[True, False]).drop_duplicates("compound_id")
-        [["compound_id", "target", "disease_group", "predicted_pchembl"]]
-        .rename(columns={"target": "top_target", "disease_group": "dominant_disease_group", "predicted_pchembl": "top_target_pchembl"})
+        screening_long_df
+        .sort_values(["compound_id", "predicted_pchembl"], ascending=[True, False])
+        .drop_duplicates("compound_id")[["compound_id", "target", "disease_group", "predicted_pchembl"]]
+        .rename(
+            columns={
+                "target": "top_target",
+                "disease_group": "dominant_disease_group",
+                "predicted_pchembl": "top_target_pchembl",
+            }
+        )
     )
     rank_df = screening_summary_df.merge(top_target_df, on="compound_id", how="left")
-    rank_df = rank_df.sort_values(["max_predicted_pchembl", "n_targets_active_like", "mean_predicted_pchembl"], ascending=False).reset_index(drop=True)
+    rank_df = (
+        rank_df.sort_values(
+            ["max_predicted_pchembl", "n_targets_active_like", "mean_predicted_pchembl"],
+            ascending=False,
+        )
+        .reset_index(drop=True)
+    )
     rank_df["rank"] = range(1, len(rank_df) + 1)
     return rank_df
 
 
 def compute_developability_score(row: pd.Series) -> float:
-    return 0.4 * float(row.get("Lipinski_pass", 0) or 0) + 0.3 * float(row.get("Veber_pass", 0) or 0) + 0.3 * float(row.get("Egan_pass", 0) or 0)
+    return (
+        0.4 * float(row.get("Lipinski_pass", 0) or 0)
+        + 0.3 * float(row.get("Veber_pass", 0) or 0)
+        + 0.3 * float(row.get("Egan_pass", 0) or 0)
+    )
 
 
 def assign_developability_status(score: float) -> str:
@@ -730,9 +1091,17 @@ def _safe_minmax(series: pd.Series) -> pd.Series:
 
 def make_prioritization_summary(screening_long_df: pd.DataFrame, screening_summary_df: pd.DataFrame) -> pd.DataFrame:
     top_target_df = (
-        screening_long_df.sort_values(["compound_id", "predicted_pchembl"], ascending=[True, False]).drop_duplicates("compound_id")
-        [["compound_id", "target", "disease_group", "predicted_pchembl", "reliability_flag"]]
-        .rename(columns={"target": "top_target", "disease_group": "dominant_disease_group", "predicted_pchembl": "top_target_pchembl", "reliability_flag": "top_target_reliability_flag"})
+        screening_long_df
+        .sort_values(["compound_id", "predicted_pchembl"], ascending=[True, False])
+        .drop_duplicates("compound_id")[["compound_id", "target", "disease_group", "predicted_pchembl", "reliability_flag"]]
+        .rename(
+            columns={
+                "target": "top_target",
+                "disease_group": "dominant_disease_group",
+                "predicted_pchembl": "top_target_pchembl",
+                "reliability_flag": "top_target_reliability_flag",
+            }
+        )
     )
     prior = screening_summary_df.merge(top_target_df, on="compound_id", how="left").copy()
     prior["potency_band"] = prior["max_predicted_pchembl"].apply(add_potency_band)
@@ -744,10 +1113,36 @@ def make_prioritization_summary(screening_long_df: pd.DataFrame, screening_summa
     prior["norm_breadth"] = _safe_minmax(prior["n_targets_active_like"])
     prior["norm_qed"] = _safe_minmax(prior["QED"])
     prior["norm_dev"] = _safe_minmax(prior["developability_score"])
-    prior["prioritization_score"] = (0.35 * prior["norm_max"] + 0.20 * prior["norm_mean"] + 0.20 * prior["norm_breadth"] + 0.15 * prior["norm_dev"] + 0.10 * prior["norm_qed"] - 0.05 * prior["overlap_penalty"]).clip(0.0, 1.0)
-    prior["priority_tier"] = pd.cut(prior["prioritization_score"], bins=[-0.001, 0.35, 0.65, 1.0], labels=["Tier 3", "Tier 2", "Tier 1"]).astype(str)
-    prior["ranking_rationale"] = prior.apply(lambda r: "; ".join([x for x in ["broad multi-target signal" if r.get("n_targets_active_like", 0) >= 3 else None, "drug-likeness passed" if r.get("druglikeness_status") == "Passed ✅" else "drug-likeness failed", f"top target: {r['top_target']}" if pd.notna(r.get("top_target")) else None, "reference overlap present" if int(r.get("overlap_with_reference", 0) or 0) == 1 else None] if x]) or "no additional annotation", axis=1)
-    prior = prior.sort_values(["prioritization_score", "max_predicted_pchembl", "n_targets_active_like"], ascending=False).reset_index(drop=True)
+    prior["prioritization_score"] = (
+        0.35 * prior["norm_max"]
+        + 0.20 * prior["norm_mean"]
+        + 0.20 * prior["norm_breadth"]
+        + 0.15 * prior["norm_dev"]
+        + 0.10 * prior["norm_qed"]
+        - 0.05 * prior["overlap_penalty"]
+    ).clip(0.0, 1.0)
+    prior["priority_tier"] = pd.cut(
+        prior["prioritization_score"],
+        bins=[-0.001, 0.35, 0.65, 1.0],
+        labels=["Tier 3", "Tier 2", "Tier 1"],
+    ).astype(str)
+    prior["ranking_rationale"] = prior.apply(
+        lambda r: "; ".join(
+            [
+                x for x in [
+                    "broad multi-target signal" if r.get("n_targets_active_like", 0) >= 3 else None,
+                    "drug-likeness passed" if r.get("druglikeness_status") == "Passed ✅" else "drug-likeness failed",
+                    f"top target: {r['top_target']}" if pd.notna(r.get("top_target")) else None,
+                    "reference overlap present" if int(r.get("overlap_with_reference", 0) or 0) == 1 else None,
+                ] if x
+            ]
+        ) or "no additional annotation",
+        axis=1,
+    )
+    prior = prior.sort_values(
+        ["prioritization_score", "max_predicted_pchembl", "n_targets_active_like"],
+        ascending=False,
+    ).reset_index(drop=True)
     prior["rank"] = range(1, len(prior) + 1)
     return prior
 
@@ -758,21 +1153,34 @@ page = st.sidebar.selectbox("Navigation", pages, index=pages.index(st.session_st
 st.session_state["nav_page"] = page
 
 with st.sidebar.expander("Visual theme", expanded=True):
-    preset = st.selectbox("Palette preset", list(PALETTE_PRESETS.keys()), index=list(PALETTE_PRESETS.keys()).index(st.session_state["chart_palette_name"]))
+    preset = st.selectbox(
+        "Palette preset",
+        list(PALETTE_PRESETS.keys()),
+        index=list(PALETTE_PRESETS.keys()).index(st.session_state["chart_palette_name"]),
+    )
     if preset != st.session_state["chart_palette_name"]:
         st.session_state["chart_palette_name"] = preset
         st.session_state["disease_colors"] = PALETTE_PRESETS[preset].copy()
     current = st.session_state["disease_colors"]
     for group in ["Oncology", "Neurology", "Cardiovascular", "Metabolic", "Diabetes-related", "Unknown"]:
-        current[group] = st.color_picker(group, current.get(group, PALETTE_PRESETS[preset].get(group, "#6B7280")), key=f"color_{group}")
+        current[group] = st.color_picker(
+            group,
+            current.get(group, PALETTE_PRESETS[preset].get(group, "#6B7280")),
+            key=f"color_{group}",
+        )
     st.session_state["disease_colors"] = current
 
 with st.sidebar.expander("Diagnostics", expanded=False):
+    checkpoint_status = get_checkpoint_status()
     st.caption(f"RDKit available: {RDKIT_AVAILABLE}")
     st.caption(f"PyG available: {PYG_AVAILABLE}")
     st.caption(f"vl-convert available: {VLCONVERT_AVAILABLE}")
     st.caption(f"Matplotlib available: {MATPLOTLIB_AVAILABLE}")
     st.caption(f"Checkpoint exists: {os.path.exists(CHECKPOINT_PATH)}")
+    if checkpoint_status["ready"]:
+        st.success("Inference status: ready")
+    else:
+        st.warning("Inference status: unavailable")
 
 if page == "Overview":
     left, right = st.columns([1.25, 0.95])
@@ -819,7 +1227,10 @@ if page == "Overview":
     ]
     for col, (badge, title, desc) in zip([wf1, wf2, wf3, wf4], cards):
         with col:
-            st.markdown(f'<div class="workflow-step"><div class="workflow-badge">{badge}</div><div style="font-weight:700; margin-bottom:8px;">{title}</div><div style="font-size:0.9rem; color:#475569; line-height:1.45;">{desc}</div></div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="workflow-step"><div class="workflow-badge">{badge}</div><div style="font-weight:700; margin-bottom:8px;">{title}</div><div style="font-size:0.9rem; color:#475569; line-height:1.45;">{desc}</div></div>',
+                unsafe_allow_html=True,
+            )
     st.write("")
     dc1, dc2, dc3, dc4, dc5 = st.columns(5)
     disease_cards = [
@@ -832,19 +1243,29 @@ if page == "Overview":
     for col, (icon, name, desc) in zip([dc1, dc2, dc3, dc4, dc5], disease_cards):
         with col:
             color = get_disease_color_map().get(name, "#64748B")
-            st.markdown(f'<div class="soft-card"><div style="font-size:1.8rem;">{icon}</div><div style="font-weight:800; color:{color}; margin-top:6px;">{name}</div><div style="margin-top:8px; color:#475569; font-size:0.88rem; line-height:1.45;">{desc}</div></div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="soft-card"><div style="font-size:1.8rem;">{icon}</div><div style="font-weight:800; color:{color}; margin-top:6px;">{name}</div><div style="margin-top:8px; color:#475569; font-size:0.88rem; line-height:1.45;">{desc}</div></div>',
+                unsafe_allow_html=True,
+            )
     st.write("")
     st.info("The public deployment is designed for computational triage. Docking, pharmacology, and clinical conclusions should be treated as downstream validation layers rather than outputs of this interface.")
+    checkpoint_status = get_checkpoint_status()
+    if not checkpoint_status["ready"]:
+        st.warning(checkpoint_status["message"])
     if st.button("Start screening", type="primary"):
         st.session_state["nav_page"] = "Input compounds"
         st.rerun()
 
 elif page == "Input compounds":
     st.title("Compound input and preprocessing")
-    st.markdown('<div class="page-note"><b>Preprocessing logic.</b> Structures are parsed, standardized, deduplicated, and annotated before screening. Only retained unique valid compounds proceed to the Core-21 model.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="page-note"><b>Preprocessing logic.</b> Structures are parsed, standardized, deduplicated, and annotated before screening. Only retained unique valid compounds proceed to the Core-21 model.</div>',
+        unsafe_allow_html=True,
+    )
     st.write("")
     input_mode = st.radio("Input mode", ["Single SMILES", "Batch paste", "CSV upload"], horizontal=True)
     raw_df = None
+
     if input_mode == "Single SMILES":
         c1, c2 = st.columns([1, 2])
         with c1:
@@ -855,7 +1276,11 @@ elif page == "Input compounds":
             if not smiles.strip():
                 st.error("Please enter a SMILES string.")
             else:
-                raw_df = pd.DataFrame({"compound_id": [compound_id.strip() if compound_id.strip() else "cmpd_1"], "SMILES": [smiles.strip()]})
+                raw_df = pd.DataFrame({
+                    "compound_id": [compound_id.strip() if compound_id.strip() else "cmpd_1"],
+                    "SMILES": [smiles.strip()],
+                })
+
     elif input_mode == "Batch paste":
         st.code("SMILES\nID,SMILES", language="text")
         batch_text = st.text_area("Paste compounds", height=180, placeholder="cmpd_1,CCO\ncmpd_2,CC(=O)O")
@@ -875,6 +1300,7 @@ elif page == "Input compounds":
                     else:
                         rows.append({"compound_id": f"cmpd_{i}", "SMILES": parts[0]})
                 raw_df = pd.DataFrame(rows)
+
     else:
         uploaded_file = st.file_uploader("Upload CSV", type=["csv"])
         if uploaded_file is not None:
@@ -882,19 +1308,26 @@ elif page == "Input compounds":
                 raw_df = pd.read_csv(uploaded_file)
             except Exception as e:
                 st.error(f"Could not read the CSV file: {e}")
+
     if raw_df is not None and not raw_df.empty:
         st.session_state["input_raw_df"] = raw_df.copy()
         st.markdown("### Raw upload preview")
         st.dataframe(raw_df.head(10), use_container_width=True, height=240)
         smiles_guess = infer_smiles_column(raw_df)
         id_guess = infer_id_column(raw_df)
+
         c1, c2 = st.columns(2)
         with c1:
-            smiles_col = st.selectbox("SMILES column", options=list(raw_df.columns), index=list(raw_df.columns).index(smiles_guess) if smiles_guess in raw_df.columns else 0)
+            smiles_col = st.selectbox(
+                "SMILES column",
+                options=list(raw_df.columns),
+                index=list(raw_df.columns).index(smiles_guess) if smiles_guess in raw_df.columns else 0,
+            )
         with c2:
             id_options = ["<auto-generate>"] + list(raw_df.columns)
             id_default = id_options.index(id_guess) if id_guess in id_options else 0
             id_col_selection = st.selectbox("Compound ID column", options=id_options, index=id_default)
+
         reference_file = st.file_uploader("Optional reference InChIKey CSV for overlap audit", type=["csv"])
         reference_inchikeys = None
         if reference_file is not None:
@@ -907,19 +1340,28 @@ elif page == "Input compounds":
                         break
             except Exception as e:
                 st.warning(f"Reference overlap file could not be parsed: {e}")
+
         if st.button("Run preprocessing", type="primary"):
-            retained, excluded, audit, metadata = preprocess_dataframe(raw_df, smiles_col, None if id_col_selection == "<auto-generate>" else id_col_selection, reference_inchikeys)
+            retained, excluded, audit, metadata = preprocess_dataframe(
+                raw_df,
+                smiles_col,
+                None if id_col_selection == "<auto-generate>" else id_col_selection,
+                reference_inchikeys,
+            )
             st.session_state["input_processed_df"] = retained
             st.session_state["input_excluded_df"] = excluded
             st.session_state["input_audit"] = audit
             st.session_state["input_metadata"] = metadata
+
     processed_df = st.session_state.get("input_processed_df")
     excluded_df = st.session_state.get("input_excluded_df")
     audit = st.session_state.get("input_audit")
     metadata = st.session_state.get("input_metadata")
+
     if audit is not None:
         msg_type, msg_text = make_status_message(audit)
         getattr(st, msg_type)(msg_text)
+
         c1, c2, c3, c4 = st.columns(4)
         with c1:
             render_metric_card("Uploaded rows", audit["uploaded_rows"], "Rows detected in the submitted input.")
@@ -929,6 +1371,7 @@ elif page == "Input compounds":
             render_metric_card("Invalid structures", audit["invalid_count"], "Excluded because parsing failed.")
         with c4:
             render_metric_card("Retained for screening", audit["retained_count"], "Compounds proceeding to multitarget screening.")
+
         c5, c6, c7 = st.columns(3)
         with c5:
             render_metric_card("Duplicates removed", audit["duplicate_removed_count"], "Removed after canonicalization-based deduplication.")
@@ -936,6 +1379,7 @@ elif page == "Input compounds":
             render_metric_card("Reference overlap", audit["reference_overlap_count"], "Flagged against the uploaded reference set.")
         with c7:
             render_metric_card("RDKit status", "On" if audit["rdkit_available"] else "Off", "Descriptor and chemistry-aware preprocessing backend.")
+
         st.markdown("### Descriptor chart")
         render_figure_controls("Preprocessing")
         if processed_df is not None and not processed_df.empty and processed_df["QED"].notna().any():
@@ -949,6 +1393,7 @@ elif page == "Input compounds":
                 st.caption(f"X field: {x_col}")
             with c4:
                 st.caption(f"Y field: {descriptor if chart_type not in ['Histogram', 'Density'] else 'count/density'}")
+
             if chart_type in ["Histogram", "Density"]:
                 chart = make_generic_chart(processed_df[[descriptor]].dropna(), chart_type, descriptor, descriptor, title=f"{descriptor} distribution")
                 fallback_df, fx, fy = None, None, None
@@ -956,9 +1401,17 @@ elif page == "Input compounds":
                 plot_df = processed_df[["compound_id", descriptor]].dropna().head(40)
                 chart = make_generic_chart(plot_df, chart_type, "compound_id", descriptor, title=f"{descriptor} snapshot")
                 fallback_df, fx, fy = plot_df, "compound_id", descriptor
+
             if chart is not None:
                 st.altair_chart(chart, use_container_width=True)
-                render_chart_export_block(chart, f"preprocessing_{descriptor.lower()}_{chart_type.lower().replace(' ', '_')}", fallback_df, fx, fy)
+                render_chart_export_block(
+                    chart,
+                    f"preprocessing_{descriptor.lower()}_{chart_type.lower().replace(' ', '_')}",
+                    fallback_df,
+                    fx,
+                    fy,
+                )
+
         st.markdown("### Data views")
         if processed_df is not None:
             st.markdown("#### Retained compounds")
@@ -966,6 +1419,7 @@ elif page == "Input compounds":
         if excluded_df is not None and not excluded_df.empty:
             st.markdown("#### Excluded compounds")
             st.dataframe(excluded_df, use_container_width=True, height=220)
+
         st.markdown("### Export")
         ex1, ex2, ex3, ex4 = st.columns(4)
         with ex1:
@@ -980,17 +1434,26 @@ elif page == "Input compounds":
         with ex4:
             if metadata is not None:
                 safe_json_download(metadata, "chronicai_preprocessing_metadata.json", "Metadata JSON")
+
         if audit["retained_count"] > 0 and st.button("Continue to multitarget screening", type="primary"):
             st.session_state["nav_page"] = "Multitarget screening"
             st.rerun()
 
 elif page == "Multitarget screening":
     st.title("Multitarget screening")
-    st.markdown('<div class="page-note"><b>Interpretation.</b> The interface reports <b>predicted pChEMBL</b> values and threshold-derived active-like calls. These are computational screening outputs for comparative triage, not experimental confirmation.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="page-note"><b>Interpretation.</b> The interface reports <b>predicted pChEMBL</b> values and threshold-derived active-like calls. These are computational screening outputs for comparative triage, not experimental confirmation.</div>',
+        unsafe_allow_html=True,
+    )
     processed_df = st.session_state.get("input_processed_df")
     if processed_df is None or processed_df.empty:
         st.warning("No retained compounds are available yet. Please complete preprocessing first.")
         st.stop()
+
+    checkpoint_status = get_checkpoint_status()
+    if not checkpoint_status["ready"]:
+        st.warning(checkpoint_status["message"])
+
     c1, c2, c3, c4 = st.columns([1.2, 1.1, 1.2, 1.2])
     with c1:
         scope = st.radio("Target scope", ["All 21 targets", "Disease group", "Custom target subset"], index=0)
@@ -1000,16 +1463,23 @@ elif page == "Multitarget screening":
         selected_custom_targets = st.multiselect("Custom targets", ALL_TARGETS, default=TARGET_GROUPS["Oncology"], disabled=scope != "Custom target subset")
     with c4:
         threshold_mode = st.radio("Threshold mode", ["Preset", "Custom"], horizontal=True)
-        threshold = st.selectbox("Preset pChEMBL threshold", POTENCY_PRESETS, index=0) if threshold_mode == "Preset" else st.slider("Custom pChEMBL threshold", 4.0, 10.0, float(DEFAULT_THRESHOLD), 0.1)
+        threshold = (
+            st.selectbox("Preset pChEMBL threshold", POTENCY_PRESETS, index=0)
+            if threshold_mode == "Preset"
+            else st.slider("Custom pChEMBL threshold", 4.0, 10.0, float(DEFAULT_THRESHOLD), 0.1)
+        )
+
     if scope == "All 21 targets":
         selected_targets = ALL_TARGETS
     elif scope == "Disease group":
         selected_targets = TARGET_GROUPS[selected_group]
     else:
         selected_targets = selected_custom_targets
+
     if not selected_targets:
         st.warning("No targets are selected for the current configuration.")
         st.stop()
+
     s1, s2, s3, s4, s5 = st.columns(5)
     with s1:
         render_metric_card("Retained compounds", int(processed_df.shape[0]), "Unique valid compounds available for screening.")
@@ -1021,18 +1491,52 @@ elif page == "Multitarget screening":
         render_metric_card("Threshold", f"pChEMBL ≥ {float(threshold):.1f}", "Operational active-like cutoff.")
     with s5:
         render_metric_card("Evaluations", int(processed_df.shape[0]) * len(selected_targets), "Planned compound–target predictions.")
-    if st.button("Run multitarget screening", type="primary"):
+
+    run_screening = st.button(
+        "Run multitarget screening",
+        type="primary",
+        disabled=not checkpoint_status["ready"],
+        help=None if checkpoint_status["ready"] else "Checkpoint or inference dependency is missing.",
+    )
+    if run_screening:
         long_df, summary_df, meta = run_multitarget_screening(processed_df, selected_targets, float(threshold))
         st.session_state["screening_long_df"] = long_df
         st.session_state["screening_summary_df"] = summary_df
         st.session_state["screening_metadata"] = meta
+
     screening_long_df = st.session_state.get("screening_long_df")
     screening_summary_df = st.session_state.get("screening_summary_df")
     screening_metadata = st.session_state.get("screening_metadata")
+
     if screening_long_df is not None and not screening_long_df.empty:
         st.markdown("## Run summary")
-        target_summary = screening_long_df.groupby(["target", "disease_group"], dropna=False).agg(compounds_scored=("compound_id", "nunique"), hit_count=("active_like_flag", "sum"), hit_fraction=("active_like_flag", "mean"), median_pchembl=("predicted_pchembl", "median"), mean_pchembl=("predicted_pchembl", "mean"), max_pchembl=("predicted_pchembl", "max")).reset_index().sort_values(["hit_fraction", "median_pchembl"], ascending=False)
-        group_summary = screening_long_df.groupby("disease_group", dropna=False).agg(compounds_scored=("compound_id", "nunique"), targets_in_view=("target", "nunique"), hit_count=("active_like_flag", "sum"), hit_fraction=("active_like_flag", "mean"), median_pchembl=("predicted_pchembl", "median"), mean_pchembl=("predicted_pchembl", "mean")).reset_index().sort_values(["hit_fraction", "median_pchembl"], ascending=False)
+        target_summary = (
+            screening_long_df.groupby(["target", "disease_group"], dropna=False)
+            .agg(
+                compounds_scored=("compound_id", "nunique"),
+                hit_count=("active_like_flag", "sum"),
+                hit_fraction=("active_like_flag", "mean"),
+                median_pchembl=("predicted_pchembl", "median"),
+                mean_pchembl=("predicted_pchembl", "mean"),
+                max_pchembl=("predicted_pchembl", "max"),
+            )
+            .reset_index()
+            .sort_values(["hit_fraction", "median_pchembl"], ascending=False)
+        )
+        group_summary = (
+            screening_long_df.groupby("disease_group", dropna=False)
+            .agg(
+                compounds_scored=("compound_id", "nunique"),
+                targets_in_view=("target", "nunique"),
+                hit_count=("active_like_flag", "sum"),
+                hit_fraction=("active_like_flag", "mean"),
+                median_pchembl=("predicted_pchembl", "median"),
+                mean_pchembl=("predicted_pchembl", "mean"),
+            )
+            .reset_index()
+            .sort_values(["hit_fraction", "median_pchembl"], ascending=False)
+        )
+
         k1, k2, k3, k4, k5, k6 = st.columns(6)
         with k1:
             render_metric_card("Compounds screened", screening_metadata["compound_count"], "Unique compounds in the current run.")
@@ -1046,7 +1550,9 @@ elif page == "Multitarget screening":
             render_metric_card("Median pChEMBL", f"{float(pd.to_numeric(screening_long_df['predicted_pchembl'], errors='coerce').median()):.2f}", "Median predicted pChEMBL across the run.")
         with k6:
             render_metric_card("Compounds with hits", int((screening_summary_df["n_targets_active_like"] > 0).sum()), "Compounds with at least one active-like call.")
+
         render_figure_controls("Screening")
+
         st.markdown("## Target-level view")
         c1, c2, c3, c4 = st.columns(4)
         with c1:
@@ -1058,37 +1564,137 @@ elif page == "Multitarget screening":
             st.caption(f"X field: {x_col}")
         with c4:
             st.caption(f"Y field: {y_metric}")
-        target_chart = make_generic_chart(target_summary, chart_type, "target", y_metric, color="disease_group", title=f"Target-level summary ({y_metric})")
+
+        target_chart = make_generic_chart(
+            target_summary,
+            chart_type,
+            "target",
+            y_metric,
+            color="disease_group",
+            title=f"Target-level summary ({y_metric})",
+        )
         if target_chart is not None:
             st.altair_chart(target_chart, use_container_width=True)
-            render_chart_export_block(target_chart, f"screening_target_{y_metric}_{chart_type.lower().replace(' ', '_')}", target_summary, "target", y_metric, "disease_group", chart_type == "Horizontal bar")
+            render_chart_export_block(
+                target_chart,
+                f"screening_target_{y_metric}_{chart_type.lower().replace(' ', '_')}",
+                target_summary,
+                "target",
+                y_metric,
+                "disease_group",
+                chart_type == "Horizontal bar",
+            )
+
         st.markdown("## Disease-group summary")
-        group_chart_type = st.selectbox("Disease-group chart type", ["Bar", "Horizontal bar", "Line", "Area", "Scatter", "Bubble", "Lollipop"], index=0)
+        group_chart_type = st.selectbox(
+            "Disease-group chart type",
+            ["Bar", "Horizontal bar", "Line", "Area", "Scatter", "Bubble", "Lollipop"],
+            index=0,
+        )
         group_metric = st.selectbox("Disease-group metric", ["hit_count", "hit_fraction", "median_pchembl", "mean_pchembl"], index=1)
-        group_chart = make_generic_chart(group_summary, group_chart_type, "disease_group", group_metric, color="disease_group", size="compounds_scored", title=f"Disease-group summary ({group_metric})")
+        group_chart = make_generic_chart(
+            group_summary,
+            group_chart_type,
+            "disease_group",
+            group_metric,
+            color="disease_group",
+            size="compounds_scored",
+            title=f"Disease-group summary ({group_metric})",
+        )
         if group_chart is not None:
             st.altair_chart(group_chart, use_container_width=True)
-            render_chart_export_block(group_chart, f"screening_group_{group_metric}_{group_chart_type.lower().replace(' ', '_')}", group_summary, "disease_group", group_metric, "disease_group", group_chart_type == "Horizontal bar")
+            render_chart_export_block(
+                group_chart,
+                f"screening_group_{group_metric}_{group_chart_type.lower().replace(' ', '_')}",
+                group_summary,
+                "disease_group",
+                group_metric,
+                "disease_group",
+                group_chart_type == "Horizontal bar",
+            )
+
         st.markdown("## Compound-level ranking")
         rank_df = build_rank_table(screening_summary_df, screening_long_df)
         rank_show = rank_df.copy()
         rank_show["druglikeness_status"] = rank_show["druglikeness_status"].fillna("Failed ❌")
-        st.dataframe(rank_show[["rank", "compound_id", "dominant_disease_group", "top_target", "top_target_pchembl", "max_predicted_pchembl", "mean_predicted_pchembl", "potency_band", "n_targets_active_like", "druglikeness_status", "QED", "overlap_with_reference"]].rename(columns={"top_target_pchembl": "Top-target potency", "max_predicted_pchembl": "Max predicted potency", "mean_predicted_pchembl": "Mean predicted potency", "potency_band": "Potency category", "druglikeness_status": "Drug-likeness"}), use_container_width=True, height=340)
+        st.dataframe(
+            rank_show[[
+                "rank",
+                "compound_id",
+                "dominant_disease_group",
+                "top_target",
+                "top_target_pchembl",
+                "max_predicted_pchembl",
+                "mean_predicted_pchembl",
+                "potency_band",
+                "n_targets_active_like",
+                "druglikeness_status",
+                "QED",
+                "overlap_with_reference",
+            ]].rename(
+                columns={
+                    "top_target_pchembl": "Top-target potency",
+                    "max_predicted_pchembl": "Max predicted potency",
+                    "mean_predicted_pchembl": "Mean predicted potency",
+                    "potency_band": "Potency category",
+                    "druglikeness_status": "Drug-likeness",
+                }
+            ),
+            use_container_width=True,
+            height=340,
+        )
+
         st.markdown("## Top-N heatmap")
         top_n = st.slider("Top-N compounds", 5, min(50, max(5, len(rank_df))), min(20, len(rank_df)))
         heatmap = make_heatmap(screening_long_df, rank_df.head(top_n)["compound_id"].tolist(), selected_targets)
         if heatmap is not None:
             st.altair_chart(heatmap, use_container_width=True)
             render_chart_export_block(heatmap, f"screening_heatmap_top_{top_n}")
+
         st.markdown("## Selected compound profile")
         selected_compound = st.selectbox("Select a compound", rank_df["compound_id"].astype(str).tolist(), index=0)
         profile_df = screening_long_df[screening_long_df["compound_id"].astype(str) == str(selected_compound)].sort_values("predicted_pchembl", ascending=False)
         profile_chart_type = st.selectbox("Profile chart type", ["Bar", "Horizontal bar", "Line", "Scatter", "Lollipop"], index=1)
-        profile_chart = make_generic_chart(profile_df, profile_chart_type, "target", "predicted_pchembl", color="disease_group", title=f"Target profile for {selected_compound}")
+        profile_chart = make_generic_chart(
+            profile_df,
+            profile_chart_type,
+            "target",
+            "predicted_pchembl",
+            color="disease_group",
+            title=f"Target profile for {selected_compound}",
+        )
         if profile_chart is not None:
             st.altair_chart(profile_chart, use_container_width=True)
-            render_chart_export_block(profile_chart, f"screening_profile_{selected_compound}", profile_df, "target", "predicted_pchembl", "disease_group", profile_chart_type == "Horizontal bar")
-        st.dataframe(profile_df[["target", "disease_group", "predicted_pchembl", "potency_band", "druglikeness_status", "active_like_flag", "reliability_flag"]].rename(columns={"predicted_pchembl": "Predicted potency", "potency_band": "Potency category", "druglikeness_status": "Drug-likeness"}), use_container_width=True, height=250)
+            render_chart_export_block(
+                profile_chart,
+                f"screening_profile_{selected_compound}",
+                profile_df,
+                "target",
+                "predicted_pchembl",
+                "disease_group",
+                profile_chart_type == "Horizontal bar",
+            )
+
+        st.dataframe(
+            profile_df[[
+                "target",
+                "disease_group",
+                "predicted_pchembl",
+                "potency_band",
+                "druglikeness_status",
+                "active_like_flag",
+                "reliability_flag",
+            ]].rename(
+                columns={
+                    "predicted_pchembl": "Predicted potency",
+                    "potency_band": "Potency category",
+                    "druglikeness_status": "Drug-likeness",
+                }
+            ),
+            use_container_width=True,
+            height=250,
+        )
+
         st.markdown("## Export tables")
         ex1, ex2, ex3, ex4 = st.columns(4)
         with ex1:
@@ -1099,21 +1705,28 @@ elif page == "Multitarget screening":
             safe_csv_download(screening_summary_df, "chronicai_screening_summary.csv", "Compound summary CSV")
         with ex4:
             safe_json_download(screening_metadata, "chronicai_screening_metadata.json", "Metadata JSON")
+
         if st.button("Continue to prioritization dashboard", type="primary"):
             st.session_state["nav_page"] = "Prioritization dashboard"
             st.rerun()
+
     elif screening_metadata is not None and not screening_metadata.get("run_ok", False):
         st.error(screening_metadata.get("error", "Screening failed."))
 
 elif page == "Prioritization dashboard":
     st.title("Prioritization dashboard")
-    st.markdown('<div class="page-note"><b>Interpretation.</b> Prioritization combines maximum predicted pChEMBL, mean predicted pChEMBL, breadth of active-like calls, developability support, and QED into a transparent triage score.</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="page-note"><b>Interpretation.</b> Prioritization combines maximum predicted pChEMBL, mean predicted pChEMBL, breadth of active-like calls, developability support, and QED into a transparent triage score.</div>',
+        unsafe_allow_html=True,
+    )
     screening_long_df = st.session_state.get("screening_long_df")
     screening_summary_df = st.session_state.get("screening_summary_df")
     screening_metadata = st.session_state.get("screening_metadata")
+
     if screening_long_df is None or screening_summary_df is None or screening_long_df.empty or screening_summary_df.empty:
         st.warning("No screening results are currently available. Please complete multitarget screening first.")
         st.stop()
+
     prior_df = make_prioritization_summary(screening_long_df, screening_summary_df)
     f1, f2, f3, f4 = st.columns([1.1, 1.1, 1.0, 1.2])
     with f1:
@@ -1124,15 +1737,18 @@ elif page == "Prioritization dashboard":
         top_n = st.slider("Top-N compounds", 5, min(50, max(5, len(prior_df))), min(20, len(prior_df)))
     with f4:
         min_score = st.slider("Minimum prioritization score", 0.0, 1.0, 0.0, 0.01)
+
     filtered = prior_df.copy()
     if selected_group_filter != "All":
         filtered = filtered[filtered["dominant_disease_group"] == selected_group_filter].copy()
     if developability_filter != "All":
         filtered = filtered[filtered["developability_status"] == developability_filter].copy()
     filtered = filtered[pd.to_numeric(filtered["prioritization_score"], errors="coerce").fillna(0) >= min_score].copy()
+
     if filtered.empty:
         st.warning("No compounds match the current dashboard filters.")
         st.stop()
+
     k1, k2, k3, k4, k5, k6 = st.columns(6)
     with k1:
         render_metric_card("Filtered compounds", int(filtered.shape[0]), "Compounds remaining after dashboard filters.")
@@ -1146,33 +1762,96 @@ elif page == "Prioritization dashboard":
         render_metric_card("Compounds with hits", int((filtered["n_targets_active_like"] > 0).sum()), "Compounds with at least one active-like target call.")
     with k6:
         render_metric_card("Reference overlap", int(pd.to_numeric(filtered["overlap_with_reference"], errors="coerce").fillna(0).sum()), "Compounds flagged by reference overlap.")
+
     st.markdown("## Ranked prioritization table")
     dash_show = filtered.copy()
-    st.dataframe(dash_show[["rank", "compound_id", "priority_tier", "prioritization_score", "dominant_disease_group", "top_target", "top_target_pchembl", "potency_band", "n_targets_active_like", "druglikeness_status", "developability_status", "QED", "max_predicted_pchembl", "mean_predicted_pchembl", "overlap_with_reference", "ranking_rationale"]].rename(columns={"top_target_pchembl": "Top-target potency", "max_predicted_pchembl": "Max predicted potency", "mean_predicted_pchembl": "Mean predicted potency", "potency_band": "Potency category", "druglikeness_status": "Drug-likeness", "developability_status": "Rule-based status"}), use_container_width=True, height=380)
+    st.dataframe(
+        dash_show[[
+            "rank",
+            "compound_id",
+            "priority_tier",
+            "prioritization_score",
+            "dominant_disease_group",
+            "top_target",
+            "top_target_pchembl",
+            "potency_band",
+            "n_targets_active_like",
+            "druglikeness_status",
+            "developability_status",
+            "QED",
+            "max_predicted_pchembl",
+            "mean_predicted_pchembl",
+            "overlap_with_reference",
+            "ranking_rationale",
+        ]].rename(
+            columns={
+                "top_target_pchembl": "Top-target potency",
+                "max_predicted_pchembl": "Max predicted potency",
+                "mean_predicted_pchembl": "Mean predicted potency",
+                "potency_band": "Potency category",
+                "druglikeness_status": "Drug-likeness",
+                "developability_status": "Rule-based status",
+            }
+        ),
+        use_container_width=True,
+        height=380,
+    )
+
     render_figure_controls("Dashboard")
     st.markdown("## Prioritization scatter / bubble view")
     chart_type = st.selectbox("Chart type", ["Scatter", "Bubble", "Bar", "Horizontal bar", "Lollipop"], index=1)
     if chart_type in ["Scatter", "Bubble"]:
-        scatter = make_generic_chart(filtered, chart_type, "prioritization_score", "QED", color="dominant_disease_group", size="n_targets_active_like", title=wrapped_title("Prioritization score versus QED"))
+        scatter = make_generic_chart(
+            filtered,
+            chart_type,
+            "prioritization_score",
+            "QED",
+            color="dominant_disease_group",
+            size="n_targets_active_like",
+            title=wrapped_title("Prioritization score versus QED"),
+        )
         st.altair_chart(scatter, use_container_width=True)
         render_chart_export_block(scatter, f"dashboard_prioritization_{chart_type.lower()}")
     else:
-        bar = make_generic_chart(filtered.head(top_n), chart_type, "compound_id", "prioritization_score", color="dominant_disease_group", title="Top-ranked compounds by prioritization score")
+        bar = make_generic_chart(
+            filtered.head(top_n),
+            chart_type,
+            "compound_id",
+            "prioritization_score",
+            color="dominant_disease_group",
+            title="Top-ranked compounds by prioritization score",
+        )
         st.altair_chart(bar, use_container_width=True)
-        render_chart_export_block(bar, f"dashboard_ranked_{chart_type.lower().replace(' ', '_')}", filtered.head(top_n), "compound_id", "prioritization_score", "dominant_disease_group", chart_type == "Horizontal bar")
+        render_chart_export_block(
+            bar,
+            f"dashboard_ranked_{chart_type.lower().replace(' ', '_')}",
+            filtered.head(top_n),
+            "compound_id",
+            "prioritization_score",
+            "dominant_disease_group",
+            chart_type == "Horizontal bar",
+        )
+
     st.markdown("## Priority-tier composition")
     tier_df = filtered.groupby("priority_tier", dropna=False).size().reset_index(name="count")
     tier_chart = make_generic_chart(tier_df, "Bar", "priority_tier", "count", title="Priority-tier composition")
     st.altair_chart(tier_chart, use_container_width=True)
     render_chart_export_block(tier_chart, "dashboard_priority_tiers", tier_df, "priority_tier", "count")
+
     st.markdown("## Top-N heatmap")
-    heatmap = make_heatmap(screening_long_df, filtered.head(top_n)["compound_id"].tolist(), screening_long_df["target"].dropna().unique().tolist())
+    heatmap = make_heatmap(
+        screening_long_df,
+        filtered.head(top_n)["compound_id"].tolist(),
+        screening_long_df["target"].dropna().unique().tolist(),
+    )
     if heatmap is not None:
         st.altair_chart(heatmap, use_container_width=True)
         render_chart_export_block(heatmap, f"dashboard_heatmap_top_{top_n}")
+
     st.markdown("## Selected compound review")
     selected_compound = st.selectbox("Select a prioritized compound", filtered["compound_id"].astype(str).tolist(), index=0)
     selected_row = filtered[filtered["compound_id"].astype(str) == str(selected_compound)].head(1)
+
     d1, d2 = st.columns([0.95, 1.05])
     with d1:
         if not selected_row.empty:
@@ -1181,13 +1860,49 @@ elif page == "Prioritization dashboard":
             render_metric_card("Top target", r.get("top_target", "NA"), f"Top-target potency: {float(r.get('top_target_pchembl', 0)):.2f}")
             render_metric_card("Drug-likeness", r.get("druglikeness_status", "NA"), f"Potency category: {r.get('potency_band', 'NA')}")
             render_metric_card("Active-like breadth", int(r.get("n_targets_active_like", 0)), f"Dominant disease group: {r.get('dominant_disease_group', 'NA')}")
+
     with d2:
         profile_df = screening_long_df[screening_long_df["compound_id"].astype(str) == str(selected_compound)].sort_values("predicted_pchembl", ascending=False)
         profile_chart_type = st.selectbox("Selected-compound chart type", ["Bar", "Horizontal bar", "Line", "Scatter", "Lollipop"], index=1)
-        profile_chart = make_generic_chart(profile_df, profile_chart_type, "target", "predicted_pchembl", color="disease_group", title=f"Target profile for {selected_compound}")
+        profile_chart = make_generic_chart(
+            profile_df,
+            profile_chart_type,
+            "target",
+            "predicted_pchembl",
+            color="disease_group",
+            title=f"Target profile for {selected_compound}",
+        )
         st.altair_chart(profile_chart, use_container_width=True)
-        render_chart_export_block(profile_chart, f"dashboard_profile_{selected_compound}", profile_df, "target", "predicted_pchembl", "disease_group", profile_chart_type == "Horizontal bar")
-    st.dataframe(profile_df[["target", "disease_group", "predicted_pchembl", "potency_band", "druglikeness_status", "active_like_flag", "reliability_flag"]].rename(columns={"predicted_pchembl": "Predicted potency", "potency_band": "Potency category", "druglikeness_status": "Drug-likeness"}), use_container_width=True, height=240)
+        render_chart_export_block(
+            profile_chart,
+            f"dashboard_profile_{selected_compound}",
+            profile_df,
+            "target",
+            "predicted_pchembl",
+            "disease_group",
+            profile_chart_type == "Horizontal bar",
+        )
+
+    st.dataframe(
+        profile_df[[
+            "target",
+            "disease_group",
+            "predicted_pchembl",
+            "potency_band",
+            "druglikeness_status",
+            "active_like_flag",
+            "reliability_flag",
+        ]].rename(
+            columns={
+                "predicted_pchembl": "Predicted potency",
+                "potency_band": "Potency category",
+                "druglikeness_status": "Drug-likeness",
+            }
+        ),
+        use_container_width=True,
+        height=240,
+    )
+
     st.markdown("## Export")
     ex1, ex2, ex3, ex4 = st.columns(4)
     with ex1:
@@ -1197,4 +1912,16 @@ elif page == "Prioritization dashboard":
     with ex3:
         safe_csv_download(filtered.head(top_n), f"chronicai_top_{top_n}.csv", f"Top-{top_n} CSV")
     with ex4:
-        safe_json_download({"screening_metadata": screening_metadata, "dashboard_filters": {"selected_group_filter": selected_group_filter, "developability_filter": developability_filter, "top_n": top_n, "min_score": min_score}}, "chronicai_dashboard_metadata.json", "Metadata JSON")
+        safe_json_download(
+            {
+                "screening_metadata": screening_metadata,
+                "dashboard_filters": {
+                    "selected_group_filter": selected_group_filter,
+                    "developability_filter": developability_filter,
+                    "top_n": top_n,
+                    "min_score": min_score,
+                },
+            },
+            "chronicai_dashboard_metadata.json",
+            "Metadata JSON",
+        )
