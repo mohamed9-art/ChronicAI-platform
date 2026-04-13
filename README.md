@@ -46,7 +46,7 @@ A clean project layout can follow this structure:
 
 ```text
 ChronicAI-platform/
-├── chronicai_app.py
+├── app.py
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
